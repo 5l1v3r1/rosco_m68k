@@ -1,0 +1,318 @@
+;------------------------------------------------------------
+;                                  ___ ___ _   
+;  ___ ___ ___ ___ ___       _____|  _| . | |_ 
+; |  _| . |_ -|  _| . |     |     | . | . | '_|
+; |_| |___|___|___|___|_____|_|_|_|___|___|_,_| 
+;                     |_____|       firmware v1                 
+;------------------------------------------------------------
+; Copyright (c)2019 Ross Bamford
+; See top-level LICENSE.md for licence information.
+;
+; UART "echo" test program
+;------------------------------------------------------------
+    include "../rosco_m68k_v1/equates.S"
+
+    section .text
+    
+    org     ROMBASE
+RESET:
+    dc.l    RAMLIMIT                    ; 00: Stack (top of on-board RAM)
+    dc.l    INIT_PC                     ; 01: Initial PC (start of ROM)
+    
+VECTORS:
+    dc.l    BUS_ERROR_HANDLER           ; 02: Bus Error
+    dc.l    ADDRESS_ERROR_HANDLER       ; 03: Address Error
+    dc.l    ILLEGAL_INSTRUCTION_HANDLER ; 04: Illegal Instruction
+    dc.l    GENERIC_HANDLER             ; 05: Divide by Zero
+    dc.l    GENERIC_HANDLER             ; 06: CHK Instruction
+    dc.l    GENERIC_HANDLER             ; 07: TRAPV Instruction
+    dc.l    GENERIC_HANDLER             ; 08: Privilege Violation
+    dc.l    GENERIC_HANDLER             ; 09: Trace
+    dc.l    GENERIC_HANDLER             ; 0A: Line 1010 Emulator
+    dc.l    GENERIC_HANDLER             ; 0B: Line 1111 Emulator
+    dc.l    RESERVED_HANDLER            ; 0C: Reserved
+    dc.l    RESERVED_HANDLER            ; 0D: Reserved
+    dc.l    GENERIC_HANDLER             ; 0E: Format error (MC68010 Only)
+    dc.l    GENERIC_HANDLER             ; 0F: Uninitialized Vector
+    
+    dcb.l   8,RESERVED_HANDLER          ; 10-17: Reserved
+    
+    dc.l    GENERIC_HANDLER             ; 18: Spurious Interrupt
+    
+    dcb.l   7,INTERRUPT_HANDLER         ; 19-1F: Level 1-7 Autovectors
+    dcb.l   16,TRAP_HANDLER             ; 20-2F: TRAP Handlers
+    dcb.l   16,RESERVED_HANDLER         ; 30-3F: Remaining Reserved vectors
+    dcb.l   4,UNMAPPED_USER_HANDLER     ; 40-43: MFP GPIO #0-3 (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 44: MFP Timer D (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 45: MFP Timer C (Not used)
+    dcb.l   2,UNMAPPED_USER_HANDLER     ; 46-47: MFP GPIO #4-5 (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 48: MFP Timer B (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 49: Transmitter error (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 4A: Transmitter empty (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 4B: Receiver error (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 4C: Receiver buffer full (Not used)
+    dc.l    UNMAPPED_USER_HANDLER       ; 4D: Timer A (Not used)
+    dcb.l   2,UNMAPPED_USER_HANDLER     ; 4E-4F: MFP GPIO #6-7 (Not used)
+    dcb.l   176,UNMAPPED_USER_HANDLER   ; 50-FF: Unused user vectors
+    
+
+; First of all, copy the exception table to RAM at 0x0.
+; 68010 VBR defaults to that location anyway for 68000 compatibility.
+START::
+    or.w    #$0700,SR                 ; Disable interrupts for now    
+    move.l  #START,A0                 ; Start into A0 (source)
+    move.l  #$400,A1                  ; 0x400 into A1 (destination)
+
+.ISR_COPY_LOOP:    
+    move.l  A1,D0                     ; Have we reached destination zero?
+    tst.l   D0
+    beq.s   .ISR_COPY_DONE            ; Halt if so
+    
+    move.l  -(A0),-(A1)               ; Copy long source to dest, with predecrement.
+    bra.s   .ISR_COPY_LOOP            ; Next iteration
+
+.ISR_COPY_DONE:
+    bsr.s   INITMFP                   ; Initialise MC68901
+    
+    bsr.w   PRINT_BANNER
+
+    bclr.b  #1,MFP_GPDR               ; Turn on GPIO #1 (Red LED)  
+    and.w   #$F0FF,SR                 ; Enable interrupts
+
+    trap    #14
+
+MAIN:
+    btst.b  #7,MFP_RSR                ; Is receiver buffer full?
+    beq.s   MAIN                      ; Busywait if not
+
+    bset.b  #1,MFP_GPDR               ; Turn off red LED
+
+    move.b  MFP_UDR,D0                ; Read byte...
+    move.b  D0,MFP_UDR                ; And write back to transmit it
+
+.WAIT_TX:
+    btst.b  #7,MFP_TSR                ; Is buffer empty flag set?
+    beq.s   .WAIT_TX                  ; Wait here if not
+
+    bclr.b  #1,MFP_GPDR               ; Red LED back on
+    bra.s   MAIN                      ; And loop
+      
+
+;------------------------------------------------------------
+; Subroutines
+;
+; Initialise MFP
+;
+; Trashes: D0
+; Modifies: MFP Regs
+INITMFP:
+    ; GPIOs
+    move.b  #$FF,MFP_DDR              ; All GPIOs are output
+    
+    ; Timer setup - Timer D controls serial clock
+    move.b  #$03,MFP_TDDR             ; Timer D count is 3 for 76.8KHz (/16 to 4.8)
+    move.b  #$01,MFP_TCDCR            ; Enable timer D with /4 prescaler
+    
+    ; USART setup
+    move.b  #$88,MFP_UCR              ; Divide by 16 clock, async, 8N1
+    move.b  #$05,MFP_TSR              ; Set pin state high and enable transmitter
+    move.b  #$01,MFP_RSR              ; And enable receiver too
+
+    ; Interrupt setup - Just set up VR sensibly, don't enable anything...
+    move.l  #MFP_VECBASE,D0           ; Set up the base MFP vector...
+    move.b  D0,MFP_VR                 ; ... at 0x40 (first 16 user vectors)
+    
+    ; Indicate success and return
+    move.b  #$FE,MFP_GPDR             ; Turn on GPIO #0 (Green LED)
+    rts
+
+
+; Show banner
+;
+; Trashes: D0, MFP_UDR
+; Modifies: A0 (Will point to address after null terminator)
+PRINT_BANNER:
+    lea.l   SZ_BANNER0,A0             ; Load first string into A0
+    
+    bsr.s   PRINTLN                   ; Print all the banner lines
+    bsr.s   PRINTLN                   ; This works because PRINT
+    bsr.s   PRINTLN                   ; leaves A0 pointing to the next
+    bsr.s   PRINTLN                   ; character in memory ;-)
+    bsr.s   PRINTLN
+    bsr.s   PRINTLN
+    
+    rts                               ; We're done
+
+
+; PRINT null-terminated string pointed to by A0
+;
+; Trashes: D0, MFP_UDR
+; Modifies: A0 (Will point to address after null terminator)
+PRINT:
+    move.b  (A0)+,D0                  ; Get next character
+    tst.b   D0                        ; Is it null?
+    beq.s   .PRINT_DONE               ; ... we're done if so.
+
+.BUFF_WAIT:
+    btst.b  #7,MFP_TSR                ; Is transmit buffer empty?
+    beq.s   .BUFF_WAIT                ; Busywait if not
+    
+    move.b  D0,MFP_UDR                ; ... otherwise, give character to the MFP
+    bra.s   PRINT                     ; and loop
+.PRINT_DONE:    
+    rts                               ; We're done
+    
+; PRINT null-terminated string pointed to by A0 followed by CRLF.
+;
+; Trashes: D0, MFP_UDR
+; Modifies: A0 (Will point to address after null terminator)
+PRINTLN:
+    bsr.s   PRINT                     ; Print callers message
+    move.l  A0,-(A7)                  ; Stash A0 to restore later
+    
+    lea     SZ_CRLF,A0                ; Load CRLF...
+    bsr.s   PRINT                     ; ... and print it
+        
+    move.l  (A7)+,A0                  ; Restore A0
+    rts    
+    
+    
+; Halt the machine.
+HALT:
+    stop    #$2700
+    bra.s   HALT
+
+
+; Busywait - expects a delay in D0, returns when D0 gets to 0 
+;
+; Trashes: D0
+BUSYWAIT:
+    sub.l   #1,D0
+    tst.l   D0
+    bne.s   BUSYWAIT
+    rts
+
+
+;------------------------------------------------------------
+; Exception handlers    
+
+BUS_ERROR_HANDLER:
+    or.w    #0700,SR                  ; Disable exceptions
+    move.b  #0,MFP_IERA
+    move.b  #0,MFP_IERB
+
+    move.b  #$FD,MFP_GPDR             ; Turn on red LED
+    move.l  #100000,D0                ; Wait a while
+    bsr.s   BUSYWAIT
+
+    move.b  #$FF,MFP_GPDR             ; Turn off red LED
+    move.l  #200000,D0                ; Wait a while
+    bsr.s   BUSYWAIT
+    bra.s   BUS_ERROR_HANDLER
+    
+    rte                               ; Never reached
+
+ADDRESS_ERROR_HANDLER:
+    or.w    #0700,SR                  ; Disable exceptions
+    move.b  #0,MFP_IERA
+    move.b  #0,MFP_IERB
+
+    move.b  #$FD,MFP_GPDR             ; Turn on red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.s   BUSYWAIT
+
+    move.b  #$FF,MFP_GPDR             ; Turn off red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.s   BUSYWAIT
+    
+    move.b  #$FD,MFP_GPDR             ; Turn on red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.w   BUSYWAIT
+
+    move.b  #$FF,MFP_GPDR             ; Turn off red LED
+    move.l  #200000,D0                ; Wait a while
+    bsr.w   BUSYWAIT
+    bra.s   ADDRESS_ERROR_HANDLER
+    
+    rte                               ; Never reached
+
+ILLEGAL_INSTRUCTION_HANDLER:
+    or.w    #0700,SR                  ; Disable exceptions
+    move.b  #0,MFP_IERA
+    move.b  #0,MFP_IERB
+
+    move.b  #$FD,MFP_GPDR             ; Turn on red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.w   BUSYWAIT
+
+    move.b  #$FF,MFP_GPDR             ; Turn off red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.w   BUSYWAIT
+    
+    move.b  #$FD,MFP_GPDR             ; Turn on red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.w   BUSYWAIT
+
+    move.b  #$FF,MFP_GPDR             ; Turn off red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.w   BUSYWAIT
+    
+    move.b  #$FD,MFP_GPDR             ; Turn on red LED
+    move.l  #50000,D0                 ; Wait a while
+    bsr.w   BUSYWAIT
+
+    move.b  #$FF,MFP_GPDR             ; Turn off red LED
+    move.l  #200000,D0                ; Wait a while
+    bsr.w   BUSYWAIT
+    bra.w   ILLEGAL_INSTRUCTION_HANDLER
+    
+    rte                               ; Never reached
+
+GENERIC_HANDLER:
+    move.l  #$2BADB105,$404
+    lea.l   SZ_GENERIC,A0
+    bsr.w   PRINTLN
+    rte
+    
+RESERVED_HANDLER:
+    move.l  #$0BADC0DE,$404
+    lea.l   SZ_RESERVED,A0
+    bsr.w   PRINTLN
+    rte
+    
+UNMAPPED_USER_HANDLER:
+    move.l  #$002BAD05,$404
+    lea.l   SZ_UNMAPPED,A0
+    bsr.w   PRINTLN
+    rte
+    
+INTERRUPT_HANDLER:
+    move.l  #$0BADF00D,$404
+    lea.l   SZ_INTERRUPT,A0
+    bsr.w   PRINTLN
+    rte
+
+TRAP_HANDLER:
+    move.l  #$C001C0DE,$404
+    lea.l   SZ_TRAP,A0
+    bsr.w   PRINTLN
+    rte
+
+
+;------------------------------------------------------------
+; Consts 
+    section .rodata
+
+SZ_BANNER0      dc.b    $1B, "[1;33m                                 ___ ___ _   ", 0
+SZ_BANNER1      dc.b    " ___ ___ ___ ___ ___       _____|  _| . | |_ ", 0
+SZ_BANNER2      dc.b    "|  _| . |_ -|  _| . |     |     | . | . | '_|", 0
+SZ_BANNER3      dc.b    "|_| |___|___|___|___|_____|_|_|_|___|___|_,_|", 0 
+SZ_BANNER4      dc.b    "                    |_____|       ", $1B, "[1;37mfirmware v1", $D, $A, 0
+SZ_INITDONE     dc.b    $1B, "[0mUART 'echo' test program v1.01 ", $1B, "[1;32mReady", $1B, "[0m;", 0
+SZ_GENERIC      dc.b    $1B, "[1;36mWARN", $1B, "[0m: Generic exception handler triggered!", 0
+SZ_RESERVED     dc.b    $1B, "[1;36mWARN", $1B, "[0m: Reserved exception handler triggered!", 0
+SZ_UNMAPPED     dc.b    $1B, "[1;36mWARN", $1B, "[0m: Unmapped user exception handler triggered!", 0
+SZ_INTERRUPT    dc.b    $1B, "[1;36mWARN", $1B, "[0m: Interrupt exception handler triggered!", 0
+SZ_TRAP         dc.b    $1B, "[1;36mWARN", $1B, "[0m: Trap exception handler triggered!", 0
+SZ_CRLF         dc.b    $D, $A, 0
+
