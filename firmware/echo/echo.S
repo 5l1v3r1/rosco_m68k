@@ -8,7 +8,16 @@
 ; Copyright (c)2019 Ross Bamford
 ; See top-level LICENSE.md for licence information.
 ;
-; UART "echo" test program
+; UART "echo" test program.
+;
+; The idea is this will prove the UART receiver works by
+; simply echoing back whatever it receives. 
+;
+; Baud rate for this test is 4800 because I wanted to test
+; with the divide by 16 clock (to try and eliminate that as
+; a reason for the receiver not working).
+;
+; Currently, this doesn't work :-(
 ;------------------------------------------------------------
     include "../rosco_m68k_v1/equates.S"
 
