@@ -31,3 +31,4 @@ IACK         = FC0 & FC1 & FC2;
 DTACK        = ((IOSEL # IACK) & MFPDTACK) # (!IACK & EVENROMSEL) # (!IACK & ODDROMSEL) # (!IACK & EVENRAMSEL) # (!IACK & ODDRAMSEL);
 MFPDS        = LDS # IACK;
 RAMOE        = RW;
+DTACK.oe     = !IOSEL & !LDS; 

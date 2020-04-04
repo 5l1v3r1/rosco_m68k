@@ -28,6 +28,9 @@ DTACK =>
   # !EVENRAMSEL & IACK
   # IACK & !ODDRAMSEL
 
+DTACK.oe  =>
+    IOSEL & LDS
+
 IACK =>
     FC0 & FC1 & FC2
 
@@ -37,9 +40,6 @@ MFPDS =>
 
 RAMOE =>
     RW
-
-DTACK.oe  =>
-    1 
 
 IACK.oe  =>
     1 

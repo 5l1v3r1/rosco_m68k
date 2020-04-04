@@ -5,7 +5,7 @@
 
 CUPL(WM)        5.0a Serial# 60008009
 Device          g16v8ma  Library DLIB-h-40-8
-Created         Sun Sep 01 21:14:25 2019
+Created         Sat Apr 04 19:23:49 2020
 Name            glue_logic 
 Partno          00 
 Revision        03 
@@ -27,6 +27,9 @@ DTACK =>
   # EVENRAMSEL & !IACK
   # !IACK & ODDRAMSEL
 
+DTACK.oe  =>
+    !IOSEL & !LDS
+
 IACK =>
     FC0 & FC1 & FC2
 
@@ -36,9 +39,6 @@ MFPDS =>
 
 RAMOE =>
     RW
-
-DTACK.oe  =>
-    1 
 
 IACK.oe  =>
     1 
@@ -65,6 +65,7 @@ Pol   Name              Ext     Pin     Type     Used   Pterms  Level
 --- --------            ---     ---     ----    ------  ------  -----   
 
  !  DTACK                       14       V        6       7       1     
+    DTACK               oe      14       X        1       1       1     
  !  EVENRAMSEL                  7        V        -       -       -     
  !  EVENROMSEL                  6        V        -       -       -     
     FC0                         1        V        -       -       -     
@@ -79,7 +80,6 @@ Pol   Name              Ext     Pin     Type     Used   Pterms  Level
  !  ODDROMSEL                   4        V        -       -       -     
  !  RAMOE                       16       V        1       7       1     
     RW                          17       V        -       -       -     
-    DTACK               oe      14       D        1       1       0     
     IACK                oe      13       D        1       1       0     
     LDS                 oe      18       D        1       1       0     
     MFPDS               oe      15       D        1       1       0     
@@ -145,7 +145,7 @@ Pin #15  02052  Pol x  02124  Ac1 -
  01216 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
  01248 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
 Pin #14  02053  Pol x  02125  Ac1 - 
- 01280 -------------------------------- 
+ 01280 ------x-----------------x------- 
  01312 -------------------------x---x-- 
  01344 ---------------------------x-x-- 
  01376 -----------------x--------x----- 
