@@ -35,7 +35,7 @@ PIN 17  = EXPSEL;
 !EVENROMSEL = IACK & ((A18 & A19 & A20 & A21 & A22 & A23) # !BOOT) & !UDS;
 !ODDROMSEL  = IACK & ((A18 & A19 & A20 & A21 & A22 & A23) # !BOOT) & !LDS;
 
-!IOSEL      = IACK & !A18 & A20 & A21 & A22 & A23;		
+!IOSEL      = IACK & !A18 & A19 & A20 & A21 & A22 & A23;		
 
 !EXPSEL     = IACK & ((!A20 & A23) # (!A20 & A22) # (A21 & !A22) # (A21 & !A23) # (A20 & !A21) # (A18 & !A19 & A20));
 

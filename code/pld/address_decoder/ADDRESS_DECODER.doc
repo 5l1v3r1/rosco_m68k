@@ -5,7 +5,7 @@
 
 CUPL(WM)        5.0a Serial# 60008009
 Device          g16v8ma  Library DLIB-h-40-8
-Created         Wed Jul 31 20:43:56 2019
+Created         Sat Apr 11 18:16:14 2020
 Name            address_decoder 
 Partno          00 
 Revision        03 
@@ -44,7 +44,7 @@ EXPSEL.oe  =>
     oe
 
 !IOSEL =>
-    !A18 & A20 & A21 & A22 & A23 & IACK
+    !A18 & A19 & A20 & A21 & A22 & A23 & IACK
 
 IOSEL.oe  =>
     oe
@@ -141,7 +141,7 @@ Pin #17  02050  Pol x  02122  Ac1 -
  00736 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
 Pin #16  02051  Pol x  02123  Ac1 - 
  00768 -------------------------------x 
- 00800 ---xx-x-x---x---x--------------- 
+ 00800 x--xx-x-x---x---x--------------- 
  00832 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
  00864 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
  00896 xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx 
