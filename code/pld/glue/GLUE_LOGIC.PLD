@@ -7,7 +7,7 @@ Company  rosco_m68k ;
 Assembly None ;
 Location  ;
 Device   g16v8a ;
-
+ 
 /* *************** INPUT PINS *********************/
 PIN 1   = FC0;
 PIN 2   = FC1;
@@ -28,7 +28,6 @@ PIN 15  = !MFPDS;
 PIN 16  = !RAMOE;
 
 IACK         = FC0 & FC1 & FC2;
-DTACK        = ((IOSEL # IACK) & MFPDTACK) # (!IACK & EVENROMSEL) # (!IACK & ODDROMSEL) # (!IACK & EVENRAMSEL) # (!IACK & ODDRAMSEL);
+DTACK        = ((IOSEL # IACK) & MFPDTACK) # (!IACK & EVENROMSEL) # (!IACK & ODDROMSEL) # (!IACK & EVENRAMSEL) # (!IACK & ODDRAMSEL) # (!IACK & !ODDROMSEL & !EVENROMSEL & !ODDRAMSEL & !EVENRAMSEL & !IOSEL);
 MFPDS        = LDS # IACK;
 RAMOE        = RW;
-DTACK.oe     = !IOSEL & !LDS; 
