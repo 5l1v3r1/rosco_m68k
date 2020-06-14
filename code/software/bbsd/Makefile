@@ -6,8 +6,8 @@
 EXTRA_CFLAGS?=
 SYSINCDIR?=../libs/build/include
 SYSLIBDIR?=../libs/build/lib
-LIBS=-lcstdlib -lrtlsupport -lmachine -lstart_serial -lgpio
-DEFINES=-DROSCO_M68K -DFATFS_USE_CUSTOM_OPTS_FILE -DSPI_FASTER -DSPI_ZERODELAY -DSD_FASTER -DSD_MINIMAL
+LIBS=-lcstdlib -lprintf -lrtlsupport -lmachine -lstart_serial -lgpio
+DEFINES=-DROSCO_M68K -DFATFS_USE_CUSTOM_OPTS_FILE -D_PRINTF_
 CFLAGS=-std=c11 -ffreestanding  -Ifat_io_lib	-I$(SYSINCDIR)					\
 			-Wall -Werror -Wno-unused-function 				\
 			-Iinclude -mcpu=68010 -march=68010 -mtune=68010 -Os					\

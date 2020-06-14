@@ -29,6 +29,7 @@
 // Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 //-----------------------------------------------------------------------------
 //-----------------------------------------------------------------------------
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include "fat_defs.h"
@@ -345,32 +346,41 @@ static FL_FILE* _open_file(const char *path)
     // Split full path into filename and directory path
     if (fatfs_split_path((char*)path, file->path, sizeof(file->path), file->filename, sizeof(file->filename)) == -1)
     {
+        printf("Split path failed\r\n");
         _free_file(file);
         return NULL;
     }
+    printf("Split path okay\r\n");
 
     // Check if file already open
     if (_check_file_open(file))
     {
+        printf("Already open check failed\r\n");
         _free_file(file);
         return NULL;
     }
+    printf("Already open check passed\r\n");
 
     // If file is in the root dir
-    if (file->path[0]==0)
+    if (file->path[0]==0) {
+        printf("Off to get the root cluster...\r\n");
         file->parentcluster = fatfs_get_root_cluster(&_fs);
-    else
+    } else
     {
+        printf("Looking for parent cluster (probably shouldn't happen unless VFAT...?)...\r\n");
         // Find parent directory start cluster
         if (!_open_directory(file->path, &file->parentcluster))
         {
+            printf("Open parent dir failed\r\n");
             _free_file(file);
             return NULL;
         }
+        printf("Open parent dir passed...\r\n");
     }
 
     // Using dir cluster address search for filename
     if (fatfs_get_file_entry(&_fs, file->parentcluster, file->filename,&sfEntry))
+        printf("Got file entry...\r\n");
         // Make sure entry is file not dir!
         if (fatfs_entry_is_file(&sfEntry))
         {
@@ -387,12 +397,15 @@ static FL_FILE* _open_file(const char *path)
             file->last_fat_lookup.ClusterIdx = 0xFFFFFFFF;
             file->last_fat_lookup.CurrentCluster = 0xFFFFFFFF;
 
+            printf("Will init caches and we're done, this should work now...\r\n");
+
             fatfs_cache_init(&_fs, file);
 #if FATFS_INC_WRITE_SUPPORT
             fatfs_fat_purge(&_fs);
 #endif
             return file;
         }
+    printf("Failed to get file entry...\r\n");
 
     _free_file(file);
     return NULL;

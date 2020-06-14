@@ -13,6 +13,7 @@
  * ------------------------------------------------------------
  */
 
+#include <printf.h>
 #include <stdio.h>
 #include <stdnoreturn.h>
 #include <stdbool.h>
@@ -29,7 +30,7 @@
 #define MOSI    GPIO3
 #define MISO    GPIO4
 
-#ifdef _PRINTF_H_
+#ifndef _PRINTF_H_
 #include <basicio.h>
 #define printf_(stuff)   mcPrint(stuff)
 #endif
